@@ -105,7 +105,7 @@ class GeneticAlgorithm{
         var rangeRoll = Math.random() * 100;
         if (rangeRoll < this.mutationRate){
             // change the range
-            var newValues = this.changeRange(clone.range, clone.weights[0]);
+            var newValues = this.changeRange(clone.range, clone.weights[0], clone.maxRange);
             clone.range = newValues.newRange;
             clone.weights[0] = newValues.newMatrix;
         }
@@ -171,11 +171,11 @@ class GeneticAlgorithm{
 
 
     // changes the range of inputs the nn looks at
-    changeRange(currentRange, firstMatrix){
+    changeRange(currentRange, firstMatrix, maxRange){
         var roll = Math.random() * 100;
         var newRange = currentRange;
         var newMatrix = this.clone(firstMatrix);
-        if (currentRange > 1 && roll > 50){
+        if (currentRange > 1 && roll > 50 || currentRange == maxRange){
             // decrease range
             newRange -= 1;
             newMatrix = newMatrix.slice(0, -1);
