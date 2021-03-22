@@ -1,0 +1,19 @@
+{
+  "name": "neural-network",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davidodonohuekord/neural-network.git"
+  },
+  "author": "David O'Donohue",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/davidodonohuekord/neural-network/issues"
+  },
+  "homepage": "https://github.com/davidodonohuekord/neural-network#readme"
+}
