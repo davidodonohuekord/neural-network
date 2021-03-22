@@ -235,7 +235,8 @@ class GeneticAlgorithm{
         // for each data point in the inputs
         for (let i = 0; i < this.data.length; i++){
             // get the predicted outcome
-            var prediction = this.propagate(this.data[i].input, nn.range, nn.weights);
+            var prediction = Math.round(this.propagate(this.data[i].input, nn.range, nn.weights));
+
             // compare it to the actual outcome
             var currentError = Math.abs(prediction - this.data[i].output);
             // add any error to the overall error
@@ -319,8 +320,14 @@ class GeneticAlgorithm{
         return C;
     }
 
+    // activation functions
+
     sigmoid(t) {
         return 1/(1+Math.pow(Math.E, -t));
+    }
+
+    reLU(t){
+        return Math.max(0, t);
     }
 
     // Prints the model for the fittest nn
@@ -366,7 +373,7 @@ function formatData(groups){
                     axis = 3;
                 }
                 var fileContents = fs.readFileSync(filename, "ascii");
-                var inputArray = fileContents.split("\n").map(x=> parseInt(x));
+                var inputArray = fileContents.split("\n").map(x=> Math.abs(parseInt(x)));
                 inputArray.splice(1, 0, axis);
                 dataArray.push({
                     input: inputArray,
