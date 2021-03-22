@@ -22,12 +22,23 @@ class GeneticAlgorithm{
     // generates a population,
     // then tests it, until the error rate is reached
     train(errorRate){
+        var generations = 0;
+        console.log("Thinking...");
         var error = (this.population.size > 0) ? this.population[0].error : 100;
         while (error > errorRate){
             this.regeneratePopulation();
             this.testPopulation();
             error = this.population[0].error;
+            generations += 1;
+            var oldMutationRate = this.mutationRate;
+            this.mutationRate = error * 10;
+            console.log("Current error of best neural network: ", error);
+            if (oldMutationRate != this.mutationRate){
+                console.log("Updating mutation rate to: ", this.mutationRate);
+            }
+            console.log("Starting generation: ", generations);
         }
+        this.testNeuralNetwork(this.population[0], true);
         console.log("Best model: ", this.population[0].weights);
     }
 
@@ -96,7 +107,7 @@ class GeneticAlgorithm{
             // change the range
             var newValues = this.changeRange(clone.range, clone.weights[0]);
             clone.range = newValues.newRange;
-            clone[0] = newValues.newMatrix;
+            clone.weights[0] = newValues.newMatrix;
         }
         // for each layer, roll for adding a layer after it, or removing the layer
         for (let i = 0; i < clone.length; i++){
@@ -167,11 +178,12 @@ class GeneticAlgorithm{
         if (currentRange > 1 && roll > 50){
             // decrease range
             newRange -= 1;
-            newMatrix = newMatrix.map(x => this.trimRow(x, 1));
+            newMatrix = newMatrix.slice(0, -1);
         } else {
             //increase range
             newRange +=1;
-            newMatrix = newMatrix.map(x=> this.padRow(x, 1));
+            var newRow = this.generateRow(newMatrix[0].length);
+            newMatrix.push(newRow);
         }
         return {
             newRange,
@@ -215,7 +227,7 @@ class GeneticAlgorithm{
     }
 
     // tests a neural network and returns the error rate
-    testNeuralNetwork(nn){
+    testNeuralNetwork(nn, debug){
         // keep track of overall error rate
         var error = 0;
         // keep track of all processed data points
@@ -228,6 +240,9 @@ class GeneticAlgorithm{
             var currentError = Math.abs(prediction - this.data[i].output);
             // add any error to the overall error
             error += currentError;
+            if (isNaN(error)){
+                return Number.MAX_SAFE_INTEGER;
+            }
             // increment the total
             total += 1;
         }
@@ -240,7 +255,7 @@ class GeneticAlgorithm{
         var currentValues = input.slice(0,range);
         currentValues.push(1);
         for (let i = 0; i < weights.length; i++){
-            currentValues = this.multiply(currentValues, weights[i])
+            currentValues = this.multiply(currentValues, weights[i]);
         }
         if (currentValues.length != 1){
             var error = "Error: Neural network collapsed into more than one output value";
@@ -285,7 +300,7 @@ class GeneticAlgorithm{
     // C is the output, a m-size array of new current values
     multiply(a, b){
         if (a.length != b.length){
-            console.log("Error while multiplying matricies a: ", a, ", and b: ", b);
+            console.log("Error while multiplying matricies a: ", a, ", and b: ", b, "\nLength of a: ", a.length, "\nLength of b: ", b.length);
             throw new Error();
         }
         const n = a.length;
@@ -374,4 +389,19 @@ var data = formatData(dataStreams);
 var alg = new GeneticAlgorithm();
 alg.addData(data);
 
-alg.train(0.0001);
+// var n = alg.generateNN(null);
+
+// var currentValues = alg.data[0].input;
+
+// currentValues = currentValues.slice(0,n.range);
+// currentValues.push(1);
+
+// console.log("generated weights length: ", alg.generateWeights(n.range + 1, 1).length);
+// console.log("length of net's first weights array: ", n.weights[0].length);
+// console.log("currentvalues length: ", currentValues.length);
+// console.log("based on range: ", n.range);
+
+// console.log("range: ", n.range, "\nweights: ", n.weights[0], "\ndata: ", currentValues,
+//     "\nSize of weights: ", n.weights[0].length, "\nLength of input: ", currentValues.length);
+
+alg.train(0.01);
