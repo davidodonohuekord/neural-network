@@ -32,11 +32,11 @@ class GeneticAlgorithm{
             generations += 1;
             var oldMutationRate = this.mutationRate;
             this.mutationRate = error * 10;
-            console.log("Current error of best neural network: ", error);
-            if (oldMutationRate != this.mutationRate){
-                console.log("Updating mutation rate to: ", this.mutationRate);
-            }
-            console.log("Starting generation: ", generations);
+            // console.log("Current error of best neural network: ", error);
+            // if (oldMutationRate != this.mutationRate){
+            //     console.log("Updating mutation rate to: ", this.mutationRate);
+            // }
+            // console.log("Starting generation: ", generations);
         }
         this.testNeuralNetwork(this.population[0], true);
         console.log("Best model: ", this.population[0].weights);
@@ -362,25 +362,60 @@ function formatData(groups){
         var filepath = groups[i].filepath;
         var label = groups[i].label;
         var allFiles = getAllFiles(filepath);
+        var dataDictionary = {};
         allFiles.forEach(filename => {
             if (filename.split('.').pop() == "csv"){
-                var axis;
-                if (filename.includes("X__AXIS")){
-                    axis = 1;
-                } else if (filename.includes("Y__AXIS")){
-                    axis = 2;
-                } else if (filename.includes("Z__AXIS")){
-                    axis = 3;
-                }
                 var fileContents = fs.readFileSync(filename, "ascii");
                 var inputArray = fileContents.split("\n").map(x=> Math.abs(parseInt(x)));
-                inputArray.splice(1, 0, axis);
+                if (filename.includes("X__AXIS")){
+                    var key = filename.replace("X__AXIS", "");
+                    if (!dataDictionary.hasOwnProperty(key)){
+                        dataDictionary.key = {
+                            x: inputArray,
+                            y: null,
+                            z: null,
+                        }
+                    } else {
+                        dataDictionary.key.x = inputArray;
+                    }
+                } else if (filename.includes("Y__AXIS")){
+                    var key = filename.replace("Y__AXIS", "");
+                    if (!dataDictionary.hasOwnProperty(key)){
+                        dataDictionary.key = {
+                            x: null,
+                            y: inputArray,
+                            z: null,
+                        }
+                    } else {
+                        dataDictionary.key.y = inputArray;
+                    }
+                } else if (filename.includes("Z__AXIS")){
+                    var key = filename.replace("Z__AXIS", "");
+                    if (!dataDictionary.hasOwnProperty(key)){
+                        dataDictionary.key = {
+                            x: null,
+                            y: null,
+                            z: inputArray,
+                        }
+                    } else {
+                        dataDictionary.key.z = inputArray;
+                    }
+                }
                 dataArray.push({
                     input: inputArray,
                     output: label
                 });
             }
-        })
+        });
+        var keys = Object.keys(dataDictionary);
+        for (let i = 0; i < keys.length; i++){
+            if (dataDictionary[keys[i]].x != null && dataDictionary[keys[i]].y != null && dataDictionary[keys[i]].z != null){
+                dataArray.push({
+                    input: dataDictionary[keys[i]].x.concat(dataDictionary[keys[i]].y, dataDictionary[keys[i]].z),
+                    output: label,
+                })
+            }
+        }
     }
 
     return dataArray;
@@ -411,4 +446,4 @@ alg.addData(data);
 // console.log("range: ", n.range, "\nweights: ", n.weights[0], "\ndata: ", currentValues,
 //     "\nSize of weights: ", n.weights[0].length, "\nLength of input: ", currentValues.length);
 
-alg.train(0.01);
+alg.train(0.1);
