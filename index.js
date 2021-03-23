@@ -28,17 +28,19 @@ class GeneticAlgorithm{
         while (error > errorRate){
             this.regeneratePopulation();
             this.testPopulation();
+            var oldError = error;
             error = this.population[0].error;
             generations += 1;
-            var oldMutationRate = this.mutationRate;
             this.mutationRate = error * 10;
+            if (oldError > error){
+                console.log("New lowest error: ", error, " at generation: ", generations);
+            }
             // console.log("Current error of best neural network: ", error);
             // if (oldMutationRate != this.mutationRate){
             //     console.log("Updating mutation rate to: ", this.mutationRate);
             // }
             // console.log("Starting generation: ", generations);
         }
-        this.testNeuralNetwork(this.population[0], true);
         console.log("Best model: ", this.population[0].weights);
     }
 
@@ -227,7 +229,7 @@ class GeneticAlgorithm{
     }
 
     // tests a neural network and returns the error rate
-    testNeuralNetwork(nn, debug){
+    testNeuralNetwork(nn){
         // keep track of overall error rate
         var error = 0;
         // keep track of all processed data points
@@ -236,7 +238,6 @@ class GeneticAlgorithm{
         for (let i = 0; i < this.data.length; i++){
             // get the predicted outcome
             var prediction = Math.round(this.propagate(this.data[i].input, nn.range, nn.weights));
-
             // compare it to the actual outcome
             var currentError = Math.abs(prediction - this.data[i].output);
             // add any error to the overall error
@@ -417,7 +418,6 @@ function formatData(groups){
             }
         }
     }
-
     return dataArray;
 }
 
