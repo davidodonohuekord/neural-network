@@ -402,10 +402,6 @@ function formatData(groups){
                         dataDictionary.key.z = inputArray;
                     }
                 }
-                dataArray.push({
-                    input: inputArray,
-                    output: label
-                });
             }
         });
         var keys = Object.keys(dataDictionary);
