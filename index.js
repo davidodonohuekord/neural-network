@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require("path");
+const { exit } = require('process');
 
 class GeneticAlgorithm{
     // inputs is a n by m array (n samples, m dimensions of each sample, not including a bias)
@@ -13,6 +14,12 @@ class GeneticAlgorithm{
         this.maxParents = 10;
     }
 
+    // adds data to the instance
+    // data should be of the form
+    // [{input: [int], output: int}]
+    // an array of objects, each object having an
+    // input, which is an array of ints,
+    // and an output, which is an int
     addData(data){
         this.data = data;
         this.maxRange = data[0].input.length;
@@ -25,12 +32,20 @@ class GeneticAlgorithm{
         var generations = 0;
         console.log("Thinking...");
         var error = (this.population.size > 0) ? this.population[0].error : 100;
+        // while the error of the current best neural network
+        // exceeds the specified target error, continue looping
         while (error > errorRate){
+            // generate the population
             this.regeneratePopulation();
+            // test the population against the data
+            // this will also sort the population
             this.testPopulation();
+            // remember the old error rate for comparison
             var oldError = error;
+            // the new error rate is the error rate of the best neural network
             error = this.population[0].error;
             generations += 1;
+            // scale mutation rate based on how incorrect the current best nn is
             this.mutationRate = error * 10;
             if (oldError > error){
                 console.log("New lowest error: ", error, " at generation: ", generations);
@@ -41,6 +56,8 @@ class GeneticAlgorithm{
             // }
             // console.log("Starting generation: ", generations);
         }
+        // print the weights of the best model
+        // if one is ever found which performs well enough
         console.log("Best model: ", this.population[0].weights);
     }
 
@@ -66,6 +83,7 @@ class GeneticAlgorithm{
                 } else {
                     // generates a number in a probability distribution favouring lower numbers
                     var index = Math.floor(Math.random() * Math.random() * this.survivorRate);
+                    // generate a new NN based on the index chosen
                     var newNN = this.generateNN(this.population[index]);
                     this.population.push(newNN);
                 }
@@ -89,10 +107,11 @@ class GeneticAlgorithm{
     // generates a new nn based on a successful nn
     generateNN(progenitor){
         var child;
-        if (progenitor == null){
+        if (progenitor == null){ // if this is just generating a random nn rather than copying one
             var range = Math.floor(Math.random() * (this.maxRange - 1)) + 1;
             child = {
-                weights: [this.generateWeights(range + 1, 1)],
+                // need to + 1 to the range to allow for a bias in the input layer
+                weights: [this.generateMatrix(range + 1, 1)],
                 range
             };
         } else {
@@ -106,7 +125,7 @@ class GeneticAlgorithm{
         // roll for changing the range
         var rangeRoll = Math.random() * 100;
         if (rangeRoll < this.mutationRate){
-            // change the range
+            // change the range (this also requires changing the first layer)
             var newValues = this.changeRange(clone.range, clone.weights[0], clone.maxRange);
             clone.range = newValues.newRange;
             clone.weights[0] = newValues.newMatrix;
@@ -150,7 +169,7 @@ class GeneticAlgorithm{
             // if m > p we need to remove elements from each row of the matrix
             first = clone.map(x => this.trimRow(x, (m-p)));
         }
-        second = this.generateWeights(p, m);
+        second = this.generateMatrix(p, m);
         return {
             first, second
         }
@@ -193,6 +212,8 @@ class GeneticAlgorithm{
         }
     }
 
+    // pads out a row of weights with more weights
+    // inserts new weights randomly
     padRow(row, number){
         var clone = this.clone(row);
         for (let i = 0; i < number; i++){
@@ -202,6 +223,7 @@ class GeneticAlgorithm{
         return clone;
     }
 
+    // randomly removes a number of weights from a row
     trimRow(row, number){
         var clone = this.clone(row);
         for (let i = 0; i < number; i++){
@@ -211,7 +233,8 @@ class GeneticAlgorithm{
         return clone;
     }
 
-    generateWeights(rowSize, colSize){
+    // generates a matrix with random weights
+    generateMatrix(rowSize, colSize){
         var rtn = [];
         for (let i = 0; i < rowSize; i++){
             var row = this.generateRow(colSize);
@@ -220,6 +243,7 @@ class GeneticAlgorithm{
         return rtn;
     }
 
+    // generates a row of weights for a matrix
     generateRow(rowLength){
         var rtn = [];
         for (let i = 0; i < rowLength; i++){
@@ -242,8 +266,10 @@ class GeneticAlgorithm{
             var currentError = Math.abs(prediction - this.data[i].output);
             // add any error to the overall error
             error += currentError;
+            // random weights on huge datasets can have a summed error rate
+            // larger than js can handle, in which case it will return NaN
             if (isNaN(error)){
-                return Number.MAX_SAFE_INTEGER;
+                return (Number.MAX_SAFE_INTEGER/this.data.length);
             }
             // increment the total
             total += 1;
@@ -257,13 +283,17 @@ class GeneticAlgorithm{
         var currentValues = input.slice(0,range);
         currentValues.push(1);
         for (let i = 0; i < weights.length; i++){
+            // update the currentValues array by multiplying through the next layer of weights
             currentValues = this.multiply(currentValues, weights[i]);
         }
+        // if the final array has more than 1 value, something has gone wrong
+        // the final array should be the output, which will be 1 value
         if (currentValues.length != 1){
             var error = "Error: Neural network collapsed into more than one output value";
             console.log(error);
             throw new Error(error);
         } else {
+            // if there is one value, return that value
             return currentValues[0];
         }
     }
@@ -276,18 +306,22 @@ class GeneticAlgorithm{
             // update the nn with the error rate
             this.population[i].error = error;
         }
-        // sort the population based on error rate
+        // sort the population based on error rate (ascending)
         this.population.sort((a, b) => {
             if (a.error < b.error){
                 return -1;
             } else if (a.error > b.error){
                 return 1;
             } else {
+                // if the error rate is the same,
+                // prefer the matrix with less range
+                // this will prevent networks growing arbitrarily large
+                // it is also preferable to look at a smaller range to speed up the processing
                 if (a.range < b.range){
                     return -1;
                 } else if (a.range > b.range){
                     return 1;
-                } else{
+                } else {
                     return 0;
                 }
             }
@@ -296,10 +330,12 @@ class GeneticAlgorithm{
 
     // Multiplies matricies A and B
     // Does not mutate A or B
-    // Not optimised 
+    // Not optimised ? Naive implementation
     // A is a n-size array of current values
     // B is a n by m array of weights,
     // C is the output, a m-size array of new current values
+    // As such, this isn't universal matrix multiplication
+    // It is array by matrix multiplication
     multiply(a, b){
         if (a.length != b.length){
             console.log("Error while multiplying matricies a: ", a, ", and b: ", b, "\nLength of a: ", a.length, "\nLength of b: ", b.length);
@@ -346,30 +382,53 @@ class GeneticAlgorithm{
 function getAllFiles(dir) {
     var files = [];
     fs.readdirSync(dir).forEach(file => {
+        // get absolute rather than relative paths
         const absolute = path.join(dir, file);
+        // if the 'file' is a directory, recurse on it
         if (fs.statSync(absolute).isDirectory()) {
             files = files.concat(getAllFiles(absolute));
-            }
-        else{
+        } else { // otherwise, add it to the list
             files.push(absolute);
         }
     });
     return files;
 }
 
+// formats data from a directory of files into the format expected by the neural network
+// this will break if there is any change to the format of the data files
+// input type is [{filepath: String, label: int}]
+// an array of objects, each object points to a directory and has an output label
+// this allows for reading in both shots and nonshots
+// reading in just shots or just nonshots won't produce anything worthwhile
+// because the neural network will optimise for always producing 1 or 0
 function formatData(groups){
     var dataArray = [];
     for (let i = 0; i < groups.length; i++){
         var filepath = groups[i].filepath;
         var label = groups[i].label;
+        // if someone forgot to either add the correct directory,
+        // or refactor the code to require a terminal input
+        // which seems more cumbersome to me
+        // let them know of their mistake
+        if (!fs.existsSync(filepath)){
+            console.log("Could not find directory: ", filepath, "\nPlease change the code to include an existing directory.");
+            process.exit(1);
+        }
+        // get the names of all files in the directory and subdirectories
         var allFiles = getAllFiles(filepath);
+        // maintain a dictionary of data
+        // this will safeguard against the possibility of an axis of data missing from a particular shot
         var dataDictionary = {};
         allFiles.forEach(filename => {
-            if (filename.split('.').pop() == "csv"){
+            if (filename.split('.').pop() == "csv"){ // make sure the file is .csv extension
+                // read in the file
                 var fileContents = fs.readFileSync(filename, "ascii");
+                // split the file into an array and convert the string numbers to ints
                 var inputArray = fileContents.split("\n").map(x=> Math.abs(parseInt(x)));
+                // if the file contains x axis data
                 if (filename.includes("X__AXIS")){
                     var key = filename.replace("X__AXIS", "");
+                    // either create the entry if it doesn't exist
                     if (!dataDictionary.hasOwnProperty(key)){
                         dataDictionary.key = {
                             x: inputArray,
@@ -377,9 +436,10 @@ function formatData(groups){
                             z: null,
                         }
                     } else {
+                        // or set the x property of the entry
                         dataDictionary.key.x = inputArray;
                     }
-                } else if (filename.includes("Y__AXIS")){
+                } else if (filename.includes("Y__AXIS")){ // same logic for Y axis
                     var key = filename.replace("Y__AXIS", "");
                     if (!dataDictionary.hasOwnProperty(key)){
                         dataDictionary.key = {
@@ -390,7 +450,7 @@ function formatData(groups){
                     } else {
                         dataDictionary.key.y = inputArray;
                     }
-                } else if (filename.includes("Z__AXIS")){
+                } else if (filename.includes("Z__AXIS")){ // same logic for Z axis
                     var key = filename.replace("Z__AXIS", "");
                     if (!dataDictionary.hasOwnProperty(key)){
                         dataDictionary.key = {
@@ -401,12 +461,20 @@ function formatData(groups){
                     } else {
                         dataDictionary.key.z = inputArray;
                     }
+                } else {
+                    console.log("It looks like naming conventions have changed.\nThis program looks for files with X__AXIS or similar in the filename, please update the code.");
+                    process.exit(1);
                 }
             }
         });
+        // get the keys of the data dictionary
+        // at this point, the dictionary should have a list of keys with axis stripped out
+        // each key points to an object, and the object should have x, y, and z properties
         var keys = Object.keys(dataDictionary);
         for (let i = 0; i < keys.length; i++){
+            // make sure this entry has x, y, and z properties
             if (dataDictionary[keys[i]].x != null && dataDictionary[keys[i]].y != null && dataDictionary[keys[i]].z != null){
+                // add the concatenated data plus the label to the data array
                 dataArray.push({
                     input: dataDictionary[keys[i]].x.concat(dataDictionary[keys[i]].y, dataDictionary[keys[i]].z),
                     output: label,
@@ -434,7 +502,7 @@ alg.addData(data);
 // currentValues = currentValues.slice(0,n.range);
 // currentValues.push(1);
 
-// console.log("generated weights length: ", alg.generateWeights(n.range + 1, 1).length);
+// console.log("generated weights length: ", alg.generateMatrix(n.range + 1, 1).length);
 // console.log("length of net's first weights array: ", n.weights[0].length);
 // console.log("currentvalues length: ", currentValues.length);
 // console.log("based on range: ", n.range);
